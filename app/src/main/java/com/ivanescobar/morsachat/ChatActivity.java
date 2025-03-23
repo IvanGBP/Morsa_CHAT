@@ -17,7 +17,9 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
@@ -108,10 +110,15 @@ public class ChatActivity extends AppCompatActivity {
                 .whereIn("senderId", Arrays.asList(currentUserId, mUserId)) // Mensajes enviados por el remitente o el destinatario
                 .whereIn("receiverId", Arrays.asList(currentUserId, mUserId)) // Mensajes recibidos por el remitente o el destinatario
                 .orderBy("timestamp", Query.Direction.ASCENDING)
-                .get()
-                .addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
+                .addSnapshotListener(new EventListener<QuerySnapshot>() { // Usar addSnapshotListener en lugar de get
                     @Override
-                    public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
+                    public void onEvent(QuerySnapshot queryDocumentSnapshots, FirebaseFirestoreException e) {
+                        if (e != null) {
+                            Log.e("CHAT_DEBUG", "Error al escuchar mensajes: " + e.getMessage());
+                            Toast.makeText(ChatActivity.this, "Error al cargar mensajes: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            return;
+                        }
+
                         mMessages.clear();
                         for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                             Message message = document.toObject(Message.class);
@@ -119,13 +126,6 @@ public class ChatActivity extends AppCompatActivity {
                         }
                         mAdapter.notifyDataSetChanged();
                         mRecyclerView.scrollToPosition(mMessages.size() - 1); // Desplazar al último mensaje
-                    }
-                })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        Log.e("CHAT_DEBUG", "Error al cargar mensajes: " + e.getMessage());
-                        Toast.makeText(ChatActivity.this, "Error al cargar mensajes: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
     }
